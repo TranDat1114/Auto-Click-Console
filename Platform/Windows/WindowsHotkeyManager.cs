@@ -16,13 +16,13 @@ namespace Auto_Click_Console.Platform.Windows
         
         private IntPtr _hookHandle = IntPtr.Zero;
         private readonly LowLevelKeyboardProc _proc;  // Mark as readonly to prevent reassignment
-        private readonly Dictionary<HotkeyCombo, Action> _hotkeyActions = new Dictionary<HotkeyCombo, Action>();
+        private readonly Dictionary<HotkeyCombo, Action> _hotkeyActions = new();
         private volatile bool _isListening = false;   // Use volatile for thread safety
         private Thread? _messageLoopThread;
         private bool _disposed = false;
         
         // Required to maintain a reference so the delegate doesn't get garbage collected
-        private readonly Dictionary<ModifierKeys, bool> _modifierStates = new Dictionary<ModifierKeys, bool>
+        private readonly Dictionary<ModifierKeys, bool> _modifierStates = new()
         {
             { ModifierKeys.Alt, false },
             { ModifierKeys.Control, false },

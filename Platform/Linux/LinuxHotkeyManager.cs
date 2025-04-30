@@ -10,7 +10,7 @@ namespace Auto_Click_Console.Platform.Linux
 {
     public class LinuxHotkeyManager : IHotkeyManager
     {
-        private readonly Dictionary<string, Action> _hotkeyCallbacks = new Dictionary<string, Action>();
+        private readonly Dictionary<string, Action> _hotkeyCallbacks = new();
         private bool _isListening = false;
         private Process? _xbindkeysProcess;
         private string? _configPath;
@@ -214,7 +214,7 @@ namespace Auto_Click_Console.Platform.Linux
         {
             if (string.IsNullOrEmpty(_configPath)) return;
             
-            List<string> configLines = new List<string>();
+            List<string> configLines = new();
             
             foreach (var hotkey in _hotkeyCallbacks)
             {
@@ -242,7 +242,7 @@ namespace Auto_Click_Console.Platform.Linux
         
         private string ConvertToXbindkeysFormat(ModifierKeys modifiers, char key)
         {
-            List<string> mods = new List<string>();
+            List<string> mods = new();
             
             if ((modifiers & ModifierKeys.Control) != 0) mods.Add("Control");
             if ((modifiers & ModifierKeys.Alt) != 0) mods.Add("Alt");

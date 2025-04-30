@@ -8,7 +8,7 @@ namespace Auto_Click_Console.Platform.Fallback
 {
     public class FallbackHotkeyManager : IHotkeyManager
     {
-        private readonly Dictionary<string, Action> _hotkeyCallbacks = new Dictionary<string, Action>();
+        private readonly Dictionary<string, Action> _hotkeyCallbacks = new();
         private bool _isListening = false;
         private Thread? _keyListenerThread;
         

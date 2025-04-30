@@ -22,28 +22,54 @@ namespace Auto_Click_Console
         private static IHotkeyManager? _hotkeyManager;
         
         // UI and Config components
-        private static UIManager _uiManager = new UIManager();
-        private static ConfigManager _configManager = new ConfigManager();
-        private static ConfigManager.AppSettings _settings;
+        private static readonly UIManager _uiManager = new();
+        private static readonly ConfigManager _configManager = new();
+        private static ConfigManager.AppSettings _settings = new();
         
         private static bool _needsMenuRefresh = true;
 
         static async Task Main(string[] args)
         {
-            Console.WriteLine("Cross-Platform Auto Clicker");
-            Console.WriteLine("==========================");
+            try 
+            {
+                Console.WriteLine("Cross-Platform Auto Clicker");
+                Console.WriteLine("==========================");
 
-            // Load saved settings
-            _settings = _configManager.LoadSettings();
-            
-            InitializePlatformSpecificComponents();
+                // Load saved settings
+                _settings = _configManager.LoadSettings();
+                
+                InitializePlatformSpecificComponents();
 
+                await RunMainLoop();
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Fatal error: {ex.Message}");
+                Console.ResetColor();
+                Console.WriteLine("Press any key to exit...");
+                Console.ReadKey(true);
+            }
+            finally
+            {
+                Cleanup();
+            }
+
+            Console.WriteLine("Auto Clicker has been closed. Goodbye!");
+        }
+
+        private static async Task RunMainLoop()
+        {
             bool exitRequested = false;
 
             // Register function key hotkeys
             _hotkeyManager?.RegisterHotkey(ModifierKeys.None, '1', () => SafeUIUpdate(StartClicking)); // F1
             _hotkeyManager?.RegisterHotkey(ModifierKeys.None, '2', () => SafeUIUpdate(StopClicking));  // F2
             _hotkeyManager?.RegisterHotkey(ModifierKeys.None, '3', () => SafeUIUpdate(TestHotkeyListener)); // F3
+            
+            // Also register Alt+Ctrl hotkeys as mentioned in help
+            _hotkeyManager?.RegisterHotkey(ModifierKeys.Control | ModifierKeys.Alt, 'S', () => SafeUIUpdate(StartClicking));
+            _hotkeyManager?.RegisterHotkey(ModifierKeys.Control | ModifierKeys.Alt, 'X', () => SafeUIUpdate(StopClicking));
 
             // Start the hotkey listener
             _hotkeyManager?.StartListening();
@@ -87,8 +113,6 @@ namespace Auto_Click_Console
                         break;
                     case "7":
                         exitRequested = true;
-                        StopClicking(); // Make sure to stop clicking before exiting
-                        _hotkeyManager?.StopListening();
                         break;
                     default:
                         Console.WriteLine("Invalid option, please try again.");
@@ -97,15 +121,42 @@ namespace Auto_Click_Console
                         break;
                 }
             }
-
-            Console.WriteLine("Auto Clicker has been closed. Goodbye!");
+        }
+        
+        private static void Cleanup()
+        {
+            // Make sure to stop any active clicking
+            StopClicking();
+            
+            // Stop hotkey listener
+            if (_hotkeyManager != null)
+            {
+                _hotkeyManager.StopListening();
+                
+                // Dispose if it implements IDisposable
+                if (_hotkeyManager is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
         }
 
         // Helper to safely update UI from hotkey callbacks
         private static void SafeUIUpdate(Action action)
         {
-            action();
-            _needsMenuRefresh = true;
+            if (action == null) return;
+            
+            try
+            {
+                action();
+                _needsMenuRefresh = true;
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error in action: {ex.Message}");
+                Console.ResetColor();
+            }
         }
 
         private static void ShowMenu()
@@ -122,8 +173,8 @@ namespace Auto_Click_Console
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("1. Configure click interval");
-            Console.WriteLine("2. Start clicking (F1)");
-            Console.WriteLine("3. Stop clicking (F2)");
+            Console.WriteLine("2. Start clicking (F1 or Alt+Ctrl+S)");
+            Console.WriteLine("3. Stop clicking (F2 or Alt+Ctrl+X)");
             Console.WriteLine("4. Help");
             Console.WriteLine("5. Test hotkey listener (F3)");
             Console.WriteLine("6. Configure click type");
@@ -203,6 +254,14 @@ namespace Auto_Click_Console
                 return;
             }
 
+            if (_autoClicker == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Auto clicker not initialized properly");
+                Console.ResetColor();
+                return;
+            }
+
             _isRunning = true;
             _clickerTokenSource = new CancellationTokenSource();
             Console.ForegroundColor = ConsoleColor.Green;
@@ -246,6 +305,9 @@ namespace Auto_Click_Console
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error in clicking task: {ex.Message}");
+                    
+                    // Make sure we handle setting _isRunning to false if an error occurs
+                    _isRunning = false;
                 }
             });
         }
@@ -295,23 +357,36 @@ namespace Auto_Click_Console
 
         private static void InitializePlatformSpecificComponents()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            try
             {
-                _autoClicker = new WindowsAutoClicker();
-                _hotkeyManager = new WindowsHotkeyManager();
-                Console.WriteLine("Windows mode initialized");
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    _autoClicker = new WindowsAutoClicker();
+                    _hotkeyManager = new WindowsHotkeyManager();
+                    Console.WriteLine("Windows mode initialized");
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    _autoClicker = new LinuxAutoClicker();
+                    _hotkeyManager = new LinuxHotkeyManager();
+                    Console.WriteLine("Linux mode initialized");
+                }
+                else
+                {
+                    _autoClicker = new FallbackAutoClicker();
+                    _hotkeyManager = new FallbackHotkeyManager();
+                    Console.WriteLine("Fallback mode initialized (limited functionality)");
+                }
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            catch (Exception ex)
             {
-                _autoClicker = new LinuxAutoClicker();
-                _hotkeyManager = new LinuxHotkeyManager();
-                Console.WriteLine("Linux mode initialized");
-            }
-            else
-            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error initializing platform components: {ex.Message}");
+                Console.WriteLine("Falling back to limited functionality mode");
+                Console.ResetColor();
+                
                 _autoClicker = new FallbackAutoClicker();
                 _hotkeyManager = new FallbackHotkeyManager();
-                Console.WriteLine("Fallback mode initialized (limited functionality)");
             }
         }
     }
