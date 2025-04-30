@@ -1,4 +1,5 @@
 using Auto_Click_Console.Platform.Interfaces;
+using Auto_Click_Console.Utils;
 using System;
 using System.Diagnostics;
 
@@ -49,19 +50,28 @@ namespace Auto_Click_Console.Platform.Linux
             }
         }
         
-        public void Click()
+        public void Click(MouseButton button = MouseButton.Left)
         {
             if (_xdotoolAvailable)
             {
                 try
                 {
+                    // Convert MouseButton enum to xdotool button number (1=left, 3=right, 2=middle)
+                    int buttonNum = button switch
+                    {
+                        MouseButton.Left => 1,
+                        MouseButton.Right => 3,
+                        MouseButton.Middle => 2,
+                        _ => 1
+                    };
+                    
                     // Use xdotool to simulate a click at the current cursor position
                     using var process = new Process
                     {
                         StartInfo = new ProcessStartInfo
                         {
                             FileName = "xdotool",
-                            Arguments = "click 1",
+                            Arguments = $"click {buttonNum}",
                             UseShellExecute = false,
                             CreateNoWindow = true
                         }
@@ -84,7 +94,7 @@ namespace Auto_Click_Console.Platform.Linux
             }
             else
             {
-                Console.WriteLine("Click (simulated - install xdotool for actual clicking)");
+                Console.WriteLine($"{button} Click (simulated - install xdotool for actual clicking)");
             }
         }
     }
